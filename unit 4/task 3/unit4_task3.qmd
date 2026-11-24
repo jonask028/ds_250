@@ -1,0 +1,190 @@
+---
+title: "Client Report - Show me!"
+subtitle: "Unit 4 Task 3"
+author: "Jonas Kennedy"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+    
+---
+
+```{python}
+import polars as pl
+import numpy as np
+from lets_plot import *
+from sklearn.model_selection import train_test_split
+from sklearn import metrics
+# add the additional libraries you need to import for ML here
+
+LetsPlot.setup_html(isolated_frame=True)
+```
+
+
+```{python}
+# import your data here using polars and the URL
+df = pl.read_csv("../dwellings_ml.csv")
+```
+
+## QUESTION 1
+
+1. __Repeat the classification exercise using 2 different algorithms/models. Explain the differences between the 3 models__ (your original one, and the 2 new ones for this task).
+
+
+
+_AI use reflection_
+**Link** to the original chat: https://chatgpt.com/s/cx_6af63f0607ac81919bb1729f1e4609f5
+
+**The Process** How exactly did you use the tool? to tweak performance of classifiers and recommend other classifiers
+
+**The Impact**  How did using AI impact your learning? It helped me find good classifier models to work with and tweak.
+
+```{python}
+# Include and execute your code here
+from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.inspection import permutation_importance
+import polars.selectors as cs
+```
+
+```{python}
+import warnings
+
+warnings.filterwarnings(
+    "ignore",
+    message=r"X does not have valid feature names.*",
+    category=UserWarning,
+)
+```
+
+```{python}
+# x = df.select(cs.numeric().exclude(["before1980","yrbuilt", "syear"]))
+x= df.select(["gartype_Att", "quality_C", "stories", "numbaths","arcstyle_ONE-STORY","abstrprd","livearea","basement","nocars"])
+y = df.select("before1980")
+
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=28)
+
+```
+
+```{python}
+dt_classifier = DecisionTreeClassifier(random_state=28)
+dt_classifier.fit(x_train, y_train)
+
+dt_pred = dt_classifier.predict(x_test)
+
+print(classification_report(y_test, dt_pred))
+
+dt_cm=confusion_matrix(y_test, dt_pred)
+dt_disp = ConfusionMatrixDisplay(confusion_matrix = dt_cm)
+
+ConfusionMatrixDisplay.from_estimator(dt_classifier, x_test, y_test, cmap="Blues")
+
+```
+
+```{python}
+et_classifier = ExtraTreeClassifier(random_state=28)
+et_classifier.fit(x_train, y_train)
+
+et_pred = et_classifier.predict(x_test)
+
+print(classification_report(y_test, et_pred))
+
+et_cm=confusion_matrix(y_test, et_pred)
+et_disp = ConfusionMatrixDisplay(confusion_matrix = et_cm)
+
+ConfusionMatrixDisplay.from_estimator(et_classifier, x_test, y_test, cmap="Purples")
+
+```
+
+```{python}
+hg_classifier = HistGradientBoostingClassifier(random_state=28)
+hg_classifier.fit(x_train, y_train)
+
+hg_pred = hg_classifier.predict(x_test)
+
+print(classification_report(y_test, hg_pred))
+
+hg_cm=confusion_matrix(y_test, hg_pred)
+hg_disp = ConfusionMatrixDisplay(confusion_matrix = hg_cm)
+
+ConfusionMatrixDisplay.from_estimator(hg_classifier, x_test, y_test, cmap="Reds")
+
+```
+
+```{python}
+rf_classifier = RandomForestClassifier(n_jobs=-8, random_state=28)
+rf_classifier.fit(x_train, y_train)
+
+rf_pred = rf_classifier.predict(x_test)
+
+print(classification_report(y_test, rf_pred))
+
+rf_cm=confusion_matrix(y_test, rf_pred)
+rf_disp = ConfusionMatrixDisplay(confusion_matrix = rf_cm)
+
+ConfusionMatrixDisplay.from_estimator(rf_classifier, x_test, y_test, cmap="Greens")
+
+```
+
+
+## QUESTION 2
+
+1. For each model (your original one, and the 2 new ones for this task), display the classification report and the permutation importances for the most important features.  Discuss which model you would recommend to the Client and why.
+
+I would recommend the random forest classifier to the client because it has the highest sscores across the board. In each of precision, recall, and f1-score both the 0 and 1 metrics are the highest of all the models meaning it is the best at guessing correctly when it should, it makes the least false positives, and it is the most accurate. 
+
+_AI use reflection_
+**Link** to the original chat:
+**The Process** How exactly did you use the tool?
+**The Impact**  How did using AI impact your learning?
+
+__Decision Tree Classifier__
+```{python}
+# Descision Tree
+dt_result= permutation_importance(dt_classifier, x_test, y_test, n_repeats=4,random_state=28)
+
+dt_perms_imp = pl.DataFrame({'importance':dt_result.importances_mean, 'vars':x_train.columns})
+
+print(classification_report(y_test, dt_pred))
+print(dt_perms_imp.sort(['importance'], descending=True))
+```
+
+__Extra Tree Classifier__
+```{python}
+# Extra Tree
+et_result= permutation_importance(et_classifier, x_test, y_test, n_repeats=4,random_state=28)
+
+et_perms_imp = pl.DataFrame({'importance':et_result.importances_mean, 'vars':x_train.columns})
+
+print(classification_report(y_test, et_pred))
+print(et_perms_imp.sort(['importance'], descending=True))
+```
+
+__Random Forest Classifier__
+```{python}
+# Random Forest
+rf_result= permutation_importance(rf_classifier, x_test, y_test, n_repeats=4,random_state=28)
+
+rf_perms_imp = pl.DataFrame({'importance':rf_result.importances_mean, 'vars':x_train.columns})
+
+print(classification_report(y_test, rf_pred))
+print(rf_perms_imp.sort(['importance'], descending=True))
+```

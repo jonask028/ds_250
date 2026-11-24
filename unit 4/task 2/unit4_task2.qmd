@@ -1,0 +1,169 @@
+
+---
+title: "Client Report -How good is it, really?"
+subtitle: "Unit 4 Task 2"
+author: "Jonas Kennedy"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+    
+---
+
+```{python}
+import polars as pl
+import numpy as np
+from lets_plot import *
+from sklearn.model_selection import train_test_split
+from sklearn import metrics
+# add the additional libraries you need to import for ML here
+
+LetsPlot.setup_html(isolated_frame=True)
+```
+
+
+```{python}
+# import your data here using polars and the URL
+df = pl.read_csv("../dwellings_ml.csv")
+
+```
+
+## QUESTION 1
+
+1. __Describe the quality of your classification model using 2-3 different evaluation metrics.__ You also need to explain how to define/interpret each of the evaluation metrics you use.  
+
+My model is high quality as it has an overall accuracy of 93%. This accuracy is shown by a high precision and recall meaning not only was it good at picking the correct answer, but when it was supposed to guess it almost always guessed correctly. 
+
+_AI use reflection_
+**Link** to the original chat:
+**The Process** How exactly did you use the tool?
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+# Include and execute your code here
+# Don't forget, you need another import statement to import the desired ML model from sklearn
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.inspection import permutation_importance
+import polars.selectors as cs
+
+x = df.select(cs.numeric().exclude(["before1980","yrbuilt"]))
+y = df.select("before1980")
+
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=28)
+
+rf_classifier = RandomForestClassifier()
+rf_classifier.fit(x_train, y_train)
+
+rf_pred = rf_classifier.predict(x_test)
+
+print(classification_report(y_test, rf_pred))
+
+rf_cm=confusion_matrix(y_test, rf_pred)
+rf_disp = ConfusionMatrixDisplay(confusion_matrix = rf_cm)
+
+ConfusionMatrixDisplay.from_estimator(rf_classifier, x_test, y_test, cmap="Greens")
+```
+
+
+## QUESTION 2
+
+1. __Justify your classification model by discussing the most important features selected by your model.__ This discussion should include a plot of permutation importance values for the most important features. Were there any features you thought would be importance but weren't?
+
+The most important feature selected by my model was if the house had an attached garage, followed by the number of stories and the number of baths. I'm not surprised by any of the non-important entries as I did extensive data mapping in the last task. 
+
+_AI use reflection_
+**Link** to the original chat:
+**The Process** How exactly did you use the tool?
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+# Include and execute your code here
+rf_result= permutation_importance(rf_classifier, x_test, y_test, n_repeats=4,random_state=28)
+
+rf_perms_imp = pl.DataFrame({'importance':rf_result.importances_mean, 'vars':x_train.columns})
+
+with pl.Config(tbl_rows=-1, tbl_cols=-1, fmt_str_lengths=1000):
+    display(
+      print(rf_perms_imp.sort(['importance'], descending=True))
+    )
+
+```
+
+```{python}
+(
+  ggplot(rf_perms_imp.filter(pl.col("importance") > 0).sort("importance", descending=True), aes(x="vars", y="importance"))
+  +geom_bar(stat="identity", position="dodge")
+  +labs(x="Attributes", y="Importance", title="Importance of attributes at guessing homes built before 1980")
+  +ggsize(2500, 1250)
+)
+```
+
+## QUESTION 3
+
+1. __For the 3 most important features, explain their relationship to the target variable. Use a plot to illustrate the relationship.__ (3 plots minimum)
+
+All three of the highest scored attributes show a clear upward trend over the years. The one that starts the lowest and climbs the most is the attached garage, and the number of bathrooms has a fairly steady trend up until the 80s. Honestly I'm not sure why stories is such a good predictor when it starts out higher than the 80s and then dips down before coming back up. I assumed that having two areas on opposite sides of the target year would muddy up the data, but it appears not!
+
+_AI use reflection_
+**Link** to the original chat:
+**The Process** How exactly did you use the tool?
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+# Include and execute your code here
+df_garage = df.group_by("yrbuilt").agg(gar_proportion = pl.col("gartype_Att").sum() / pl.col("totunits").sum()).sort("yrbuilt", descending=True)
+df_stories = df.group_by("yrbuilt").agg(stories_avg = pl.col("stories").mean()).sort("yrbuilt", descending=True)
+df_numbaths = df.group_by("yrbuilt").agg(baths_avg = pl.col("numbaths").mean()).sort("yrbuilt", descending=True)
+```
+```{python}
+(
+  ggplot(df_garage, aes(x="yrbuilt", y="gar_proportion"))
+  +geom_line()
+  +labs(x="Year Built", y="Proportion of Homes With Attached Garages")
+  +scale_x_continuous(format="d", breaks=(list(range(1870, 2025, 10))))
+  +ggsize(2500, 1250)
+)
+```
+```{python}
+(
+  ggplot(df_stories, aes(x="yrbuilt", y="stories_avg"))
+  +geom_line()
+  +labs(x="Year Built", y="Average Number of Stories")
+  +scale_x_continuous(format="d", breaks=(list(range(1870, 2025, 10))))
+  +ggsize(2500, 1250)
+)
+```
+```{python}
+(
+  ggplot(df_numbaths, aes(x="yrbuilt", y="baths_avg"))
+  +geom_line()
+  +labs(x="Year Built", y="Average Number of Baths")
+  +scale_x_continuous(format="d", breaks=(list(range(1870, 2025, 10))))
+  +ggsize(2500, 1250)
+)
+```
+
+<!-- ```{python}
+(
+  ggplot(df_stories_groups, aes(x="stories", y="num_homes", fill="yrbuilt"))
+  +geom_bar(stat="identity", position="dodge")
+  +labs(x="Year Built", y="stories")
+)
+``` -->

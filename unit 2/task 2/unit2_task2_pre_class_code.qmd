@@ -1,0 +1,174 @@
+---
+title: "Untitled"
+format: html
+---
+
+Hopefully this links works for everyone. If not, I provided the url to the website I got the link from and you could get your own link.
+
+
+```{python}
+import polars as pl
+import requests #new for reading in JSON
+import io       #new for reading in JSON
+import numpy as np
+from lets_plot import *
+
+LetsPlot.setup_html(isolated_frame=True)
+```
+
+```{python}
+
+# I obtained this data from: https://www.agentsfordata.com/json/sample
+
+url = "https://byuidatascience.github.io/DS250-Course-Polars/Data/house-price.json"
+
+# Use the requests library to send an HTTP GET request to that URL.
+# The result (response) contains the server’s reply, including the file contents.
+# The actual bytes of the file are in response.content.
+response = requests.get(url)
+
+# response.content is raw bytes, not a file.
+# io.BytesIO(...) wraps those bytes in a file-like object in memory, which Polars can read from.
+# pl.read_json(...) parses the JSON and loads it into a Polars DataFrame called df.
+houses = pl.read_json(io.BytesIO(response.content))
+```
+
+
+Key skills to learn:
+
+- Aggregation functions such as mean(), sum(), max(), len()
+- group_by() aggregations
+
+# Basic aggregation
+
+If you just have a series of numbers and the object is not a dataframe:
+
+```{python}
+# Age at time of death of latter day prophets (excluding Joseph Smith)
+prophets = [76, 78, 91, 87, 80, 88, 81, 96, 95, 74, 90, 94, 87, 97, 90, 101]
+min(prophets) # aggregate a list
+
+```
+
+```{python}
+# Aggregating in a dataframe
+houses.select(pl.col('price').median()) # returns a dataframe
+
+#use .item() to select the value from the dataframe and return it as a single scalar with no additional structure
+houses.select(pl.col('price').median()).item()
+```
+
+I don't need this next cell, can skip it.
+```{python}
+#Starting with a polars dataframe, but if you want the result to be a scalar
+prices = houses.select('price').to_series() #this create a series
+prices.median() #returns a scalar value without additional structure
+```
+
+
+```{python}
+# Calculate multiple summaries
+houses.select(
+    pl.col("price").median().alias("med_price"),
+    pl.col("price").max().alias("max_price"),
+    pl.col("area").mean().alias("mean_area"),
+)
+```
+
+```{python}
+# Include extra calculations
+houses.select(((pl.col('price').median()) / 1000).alias('med_price')
+              , ((pl.col('price').max()) / 1000).alias('max_price')
+              , pl.col('area').mean()) 
+```
+
+No need to recreate the wheel. Use this handy function:
+```{python}
+houses.describe() 
+```
+
+# group_by().agg() aggregation
+
+Calculate some statistics for each value of a specific variable.
+
+You can mention function first if you want 
+
+```{python}
+# probably just do a couple of these, not all. But must include the pl.len()
+houses.group_by("bedrooms", "bathrooms").agg(
+    pl.mean(["area", "stories"]),
+    # pl.max('stories'),
+    pl.max("price").alias("max_price"),
+    pl.min("price").alias("min_price"),
+    pl.len(),
+)
+```
+
+But I recommend listing the pl.col() first. It's a bit longer, but it is more consistent with everything else we do.
+
+NOTE: THe major exception is the pl.len() command. For whatever reason, there isn't much flexibility. If you want to get the count, you have to use pl.len().
+
+```{python}
+#Just do a couple of these, probably not all
+houses.group_by('bedrooms').agg(pl.col(['area', 'stories']).mean(),
+                                #pl.col('stories').max(),
+                                pl.col('price').max().alias('max_price'),
+                                pl.col('price').min().alias('min_price'),
+                                pl.len()
+                                )
+```
+
+
+
+## list columns and conditional calculations
+You can also create list columns
+
+```{python}
+houses.group_by('bedrooms').agg(pl.col('guestroom')) #notice the list column, cool!
+
+# how many actually have guestrooms, any at all?
+(
+houses.group_by('bedrooms')
+      .agg(pl.col('guestroom'),
+            #run next line without the alias first to see if they can debug it
+           (pl.col('guestroom') == 'yes').sum().alias('count_with_guestrooms'),
+           (pl.col('guestroom') == 'yes').mean().alias('perc_with_guestrooms')) 
+)
+```
+
+
+# nested group_by
+
+```{python}
+houses.group_by('bedrooms', 'bathrooms').agg(pl.col('price').median(),
+                                             pl.col('area').median()
+).sort('bedrooms', 'bathrooms')
+```
+
+# over()
+
+The over() command allows you to take the summary statistic and add it as a column so that each row receives it's respective value. If your familiar with joins, it essentially joins the summarized dataset back to the original dataset.
+
+simple example:
+```{python}
+#not sure why I switched to parking.
+#you could keep using bedrooms, but parking has fewer distinct values
+houses.group_by('parking').agg(pl.col('price').median())
+```
+
+Now, I can put that data right back into the original dataframe with over
+
+```{python}
+houses.with_columns(
+    pl.col('price').median().over('parking').alias('med_price_by_parking')
+)
+```
+
+You can use multiple arguments to over
+
+```{python}
+houses.with_columns(
+    pl.col('price').median().over('guestroom', 'basement').alias('med_price_by_gr_base')
+)
+```
+

@@ -1,0 +1,134 @@
+---
+title: "Client Report - Elliot"
+subtitle: "Unit 1 Stretch: Elliot"
+author: "Jonas Kennedy"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+---
+
+
+```{python}
+import polars as pl
+import numpy as np
+from lets_plot import *
+
+LetsPlot.setup_html(isolated_frame=True)
+```
+
+```{python}
+df = pl.read_csv("../names_year.csv")
+```
+
+__Reproduce the elliot chart__
+
+```{python}
+elliot_df = df.filter((pl.col("name") == "Elliot") & (pl.col("year") >= 1950))
+```
+
+```{python}
+(
+    ggplot(elliot_df, aes(x="year", y="Total"))
+    + geom_line(color="#0101FF", manual_key=layer_key("Elliot"), size=1.5)
+    + geom_segment(
+        x=1982,
+        xend=1982,
+        y=-150,
+        yend=3150,
+        color="#FF0000",
+        linetype="dashed",
+        size=1.5,
+    )
+    + geom_text(
+        x=1982,
+        y=3008,
+        label="E.T. Released",
+        nudge_x=-7.5,
+        size="9",
+        family="arial",
+    )
+    + geom_segment(
+        x=1984,
+        xend=1984,
+        y=-150,
+        yend=3150,
+        color="#FF0000",
+        linetype="dashed",
+        size=1.5,
+    )
+    + geom_text(
+        x=1984,
+        y=3008,
+        label="Second Release",
+        nudge_x=8,
+        size="9",
+        family="arial",
+    )
+    + geom_segment(
+        x=2002,
+        xend=2002,
+        y=-150,
+        yend=3150,
+        color="#FF0000",
+        linetype="dashed",
+        size=1.5,
+    )
+    + geom_text(
+        x=2002.5,
+        y=3008,
+        label="Third Release",
+        nudge_x=6.25,
+        size="9",
+        family="arial",
+    )
+    + scale_x_continuous(
+        format="d",
+        breaks=list(range(1950, 2026, 10)),
+        limits=[1950, 2025],
+        expand=[0, 0],
+    )
+    + scale_y_continuous(
+        format="d", breaks=list(range(0, 3050, 500)), limits=[-150, 3150], expand=[0, 0]
+    )
+    + labs(x="year", y="", title="Elliot...What?", manual="name")
+    + theme(
+        axis_line="blank",
+        axis_text_spacing_x=5,
+        axis_text_spacing_y=-1,
+        axis_ticks="blank",
+        axis_title_x=element_text(size=27, margin=[25, 0, 0, 0]),
+        legend_justification="top",
+        legend_margin=[10, 0, 0, 25],
+        legend_position="right",
+        legend_text=element_text(size=16),
+        legend_title=element_text(size=15),
+        legend_key_size=35,
+        panel_background=element_rect(fill="#EBEBEB", linetype="blank"),
+        panel_inset=[0, 0, 0, 5],
+        panel_grid_major=element_line(color="white", size=2.5),
+        panel_grid_minor="blank",
+        plot_margin=[0, 25],
+        plot_title=element_text(size=30),
+        plot_title_position="plot",
+        text=element_text(family="Lucida Bright", size=18),
+    )
+    + ggsize(900, 450)
+)
+```

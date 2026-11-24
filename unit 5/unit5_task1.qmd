@@ -1,0 +1,186 @@
+---
+title: "Client Report - Star Wars for Dummies"
+subtitle: "Unit 5 Task 3"
+author: "[STUDENT NAME]"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+    
+---
+
+```{python}
+import polars as pl 
+import numpy as np
+from lets_plot import *
+import polars.selectors as cs
+# add the additional libraries you need to import for ML here
+
+LetsPlot.setup_html(isolated_frame=True)
+
+data_url = "https://byuidatascience.github.io/DS250-Course-Polars/Data/StarWars_with_emails.csv"
+```
+
+<!-- The first 10 rows are not part of the datset we need.
+
+The columns headers are split across two rows. We need to clean and simplify the column headers-->
+
+```{python}
+# Read in and tidy up the first row
+a = pl.Series(pl.read_csv(data_url, skip_rows = 10, n_rows=1, has_header=False, encoding = 'utf8-lossy').row(0))
+# Note the non-aschii character in the column "Do you consider yourself to be a fan of the Expanded Universe". (column AF if you open it in Excel). 
+
+# BTW: Detecting what it is and where can be difficult
+
+# Lossy means that invalid utf8 values are replaced with � characters. When using other encodings than utf8 or utf8-lossy, the input is first decoded in memory with python. Defaults to utf8...ignore_errors = True does not replace the non-utf8 character with a blank space like you would hope
+
+a[2] = "seen_any" #simply overwrite the value at index 2
+
+# Rather than changing each column header manually,
+# here we use regex to apply changes more efficiently
+a = (
+  a.str.replace(r".+seen.+", "seen_")
+   .str.replace(r".+rank.+", "rank_")
+   .str.replace(r"(.+favorably.+)", "fav_")
+   .fill_null(strategy = "forward")
+
+   .str.replace("\uFFFD+", "") #this gets rid of the question marks in a diamond characters 
+   .str.strip_chars()
+   .str.to_lowercase()
+   .str.replace_all(" ", "_")
+   .str.replace(r"location(.+)", "location")
+
+)
+a[3] = "star_wars_fan"
+a[30] = "who_shot_first"
+a[31] = "know_expanded_universe"
+a[32] = "expanded_universe_fan"
+a[33] = "star_trek_fan"
+```
+
+<!-- Combine series q and a into one series to be used as column names-->
+
+```{python}
+b = pl.Series(pl.read_csv(data_url, skip_rows = 11, n_rows=1, has_header=False, encoding = 'utf8-lossy').row(0))
+
+b = (
+  b.str.replace(r"Star Wars: (Episode \w+) .+", "${1}")
+   .str.replace("Response", "")
+   .str.replace_all(" ", "_")
+   .fill_null("")
+   .str.strip_chars()
+)
+
+```
+
+```{python}
+#Now combine the two series, each of which contains part of the desired column header
+new_names = (a + b).to_list()
+
+# Read in the data, skipping over the column header rows
+# and use 'new_names' as the column headers
+df = pl.read_csv(data_url, skip_rows=12, has_header=False, new_columns = new_names )
+```
+
+
+1. __Remake the respondent names from the email column. Show the first 5 rows of the result. Each respondentID has a unique email they used to submit their survey. We can see that each of the emails have a different format for their names.__
+
+__Use regex to create a first name column, a last name column, and a email domain column to your data set for each row. Show the first 5 rows of the result (you don’t have to show all the columns, just the email, first name, last name, and email domain).__
+
+__This table should be placed either in the the Methods section or an Appendix of the report submitted for this unit (see below).__
+
+```{python}
+df_name_domain = df.with_columns(pl.col("email")
+.str.strip_chars()
+.str.splitn("@", 2).struct.rename_fields(["email_string","domain"])).unnest("email")
+
+df_categorized = df_name_domain.with_columns(periods = pl.when(pl.col("email_string").str.contains(r"\.")).then(pl.col("email_string")).otherwise(None), others = pl.when(pl.col("email_string").str.contains(r"\.")).then(None).otherwise(pl.col("email_string")))
+
+df_last_first = df_categorized.filter(pl.col("others").str.contains(" ")).with_columns(last_name = pl.col("others").str.extract(r"(^\S+)\s"), first_name = pl.col("others").str.extract(r"/s(/S+)$"))
+
+df_first_last = df_categorized.with_columns(
+  first_name = pl.when(pl.col("periods").is_not_null())
+  .then(pl.col("periods").str.extract(r"^([a-zA-Z]+)"))
+  .otherwise(pl.col("others").str.extract(r"([a-zA-Z]+)$")), 
+  last_name = pl.when(pl.col("periods").is_not_null())
+  .then(pl.col("periods").str.extract(r"([a-zA-Z]+)$"))
+  .otherwise(pl.col("others").str.extract(r"^([a-zA-Z]+)")),
+  domain = pl.col("domain").str.to_lowercase(),
+  email=(pl.col("email_string") + "@" + pl.col("domain").str.to_lowercase())
+).select(["email","first_name","last_name","domain"])
+```
+
+2. __Make a table that counts the number of times each domain is used. Note that sometimes the email domain is not lowercase. Make them uniform for clean counting.__
+
+__This table should be placed either in the the Methods section or an Appendix of the report submitted for this unit (see below).__
+
+```{python}
+df_domain_counts = df_first_last.group_by("domain").agg(count = pl.col('domain').count())
+```
+
+<!-- Rather than a simple write up like we have been doing so far, this project requires a more structured approach. You will need to show you have completed the tasks, but will structure the report in a way that is more like a client report. The report will be structured as follows:
+
+ - Executive Summary: This is a high level overview of the analysis, including the problem statement, the data used, and the main findings. It should be concise and to the point, summarizing the key insights/recommendations without going into too much detail. These are usually bullet points, no graphs. PLEASE EXPLICITLY STATE IN THIS SECTION WHETHER YOU DID THE STRETCH OR NOT! 
+ - Methods: this is a high level overview of the methods used in the analysis. This should include an explanation of data preparation steps, especially how you dealt with each categorical variable and why. Showing the resulting or original distribution of variables may be helpful. Describe how you handled missing values and outliers. How did/might your decisions impact results?Explain any feature engineering steps you took. This is also where you will put the graphs you recreated to show you validated the dataset and that it matches the article.
+ - Results: this is a more in-depth explanation of results. A classification report and feature importance graphs belong here.
+ - Conclusion: this is where you will discuss the implication of the results, including any limitations of the analysis, and recommendations for actions/future work. It may feel repetitive to the executive summary, but it should be more detailed and include any additional insights you gained from the analysis. -->
+
+
+## Executive Summary
+
+I found that after cleaning up the data to have first and last names and isolating the domain name that the number of gmail users is significantly higher than both yahoo and myorg users combined at almost 1.5 times the size.
+
+
+
+## Methods
+
+_type your report here, you will likely want multiple code chunks and text intermingled_
+
+_AI use reflection_
+**Link** to the original chat: https://chatgpt.com/s/cx_6b00d559b54c8191a6779f5e9d552a6d
+**The Process** How exactly did you use the tool? to troubleshoot regex
+**The Impact**  How did using AI impact your learning? it sped up my troubleshooting of stupid stuff
+
+```{python}
+# Include and execute your code here
+df_first_last.head(5)
+```
+
+```{python}
+df_domain_counts
+```
+
+## Results
+
+_type your report here, you will likely want multiple code chunks and text intermingled_
+
+_AI use reflection_
+**Link** to the original chat:
+**The Process** How exactly did you use the tool?
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+# Include and execute your code here
+
+
+```
+
+## Results
+
+_type your report here_

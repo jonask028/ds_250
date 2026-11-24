@@ -1,0 +1,166 @@
+---
+title: "Client Report - Flights: Creating New Columns"
+subtitle: "Unit 2 Task 1"
+author: "Jonas Kennedy"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+    
+---
+
+```{python}
+import polars as pl
+import requests #new for reading in JSON
+import io       #new for reading in JSON
+import numpy as np
+from lets_plot import *
+
+LetsPlot.setup_html(isolated_frame=True)
+```
+
+
+
+```{python}
+# Learn morea about Code Cells: https://quarto.org/docs/reference/cells/cells-jupyter.html
+
+url = "https://raw.githubusercontent.com/byuidatascience/data4missing/master/data-raw/flights_missing/flights_missing.json"
+response = requests.get(url)
+df = pl.read_json(io.BytesIO(response.content))
+```
+
+## QUESTION 1
+
+1. __Create a new 'season' column.__ Define 'season' as:
+    1. Winter for January, Febuary (note the mispelling), March
+    1. Spring for April, May, June
+    1. Summer for  July, August, September
+    1. Fall for October, November, December
+    1. All other rows can be assigned a value of 'Unknown' 
+
+_No discussion needed for this question_
+
+_AI use reflection_
+**Link** to the original chat:
+**The Process** How exactly did you use the tool?
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+
+winter_months = ["January", "Febuary", "March"]
+spring_months = ["April", "May", "June"]
+summer_months = ["July", "August", "September"]
+fall_months = ["October", "November", "December"]
+
+seasons = df.with_columns(
+    season=pl.when(pl.col("month").is_in(winter_months))
+    .then(pl.lit("winter"))
+    .when(pl.col("month").is_in(spring_months))
+    .then(pl.lit("spring"))
+    .when(pl.col("month").is_in(summer_months))
+    .then(pl.lit("summer"))
+    .when(pl.col("month").is_in(fall_months))
+    .then(pl.lit("fall"))
+    .otherwise(pl.lit("unknown"))
+)
+
+seasons
+```
+
+## QUESTION 2
+
+1. __Divide all the columns by 1000 whose name starts with num_of.__ Be sure to first filter out rows that contain problematic values for the columns like -999 or 1500+.
+
+_No discussion needed for this question_
+
+_AI use reflection_
+**Link** to the original chat:
+**The Process** How exactly did you use the tool? I googled syntax and the google ai summary showed it to me. 
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+
+numeric_columns = [c for c in seasons.columns if c.startswith("num_of")]
+
+filtered_columns = seasons.with_columns(
+    pl.when(pl.col(numeric_columns).cast(pl.Int64, strict=False) < 0)
+    .then(None)
+    .otherwise(pl.col(numeric_columns).cast(pl.Int64, strict=False))
+    .name.keep()
+)
+milli_columns = filtered_columns.with_columns(
+    (pl.col(numeric_columns) / 1000).name.suffix("_div")
+)
+
+milli_columns
+```
+
+## QUESTION 3
+
+1. According to the BTS website, the “Weather” category only accounts for severe weather delays. Mild weather delays are not counted in the “Weather” category, but are actually included in both the “nas” and “late_aircraft” categories. __Using the columns you modified in the bullet above, your job is to create a new column that calculates the total number of flights (in 1,000's) delayed by weather (both severe and mild).__ Show your work by printing the first 5 rows of the dataset. Use these three rules for your calculations:  
+
+    a. 100% of delayed flights in the Weather category are due to weather  
+    a. 30% of all delayed flights in the "late_aircraft" category are due to weather  
+    a. From April through August, 40% of delayed flights in the NAS category are due to weather. The rest of the months, the proportion rises to 65%  
+
+_No discussion needed for this question_
+
+_AI use reflection_
+**Link** to the original chat:
+**The Process** How exactly did you use the tool?
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+
+good_months = ["April", "May", "June", "July", "August"]
+
+weather_delays = milli_columns.with_columns(
+    pl.when(pl.col("month").is_in(good_months))
+    .then(0.40)
+    .otherwise(0.65)
+    .alias("weather_nas_rate")
+)
+total_weather_delays = weather_delays.with_columns(
+    weather_delay_k=pl.col("num_of_delays_weather_div")
+    + pl.col("num_of_delays_late_aircraft_div")
+    + pl.col("num_of_delays_nas_div") * pl.col("weather_nas_rate")
+)
+
+total_weather_delays.head(5)
+```
+
+## QUESTION 4
+
+1. __Using the new weather variable calculated above, create a boxplot showing the distribution of flights delayed by weather for each season. Describe what you learn from this graph.__    
+
+The season with the most delays is winter with the highest maximum and median, but summer being the second highest surprised me but it makes sense with thunderstorms being more common then. Seeing spring be the lowest lines up with milder spring rains, and the fall months are near identical to spring. 
+
+_AI use reflection_
+**Link** to the original chat:
+**The Process** How exactly did you use the tool?
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+
+(
+    ggplot(total_delays, aes(x="season", y="weather_delay_k"))
+    + geom_boxplot()
+    + labs(x="Season", y="Delayed Flights (1000's)")
+)
+```

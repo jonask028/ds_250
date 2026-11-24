@@ -1,0 +1,182 @@
+---
+title: "Client Report - Flights: Column Aggregation"
+subtitle: "Unit 2 Task 2"
+author: "Jonas Kennedy"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+    
+---
+
+```{python}
+import polars as pl
+import polars.selectors as cs
+import requests  # new for reading in JSON
+import io  # new for reading in JSON
+import numpy as np
+from lets_plot import *
+
+LetsPlot.setup_html(isolated_frame=True)
+```
+
+
+```{python}
+# Learn morea about Code Cells: https://quarto.org/docs/reference/cells/cells-jupyter.html
+
+# Include and execute your code here
+url = "https://raw.githubusercontent.com/byuidatascience/data4missing/master/data-raw/flights_missing/flights_missing.json"
+response = requests.get(url)
+df = pl.read_json(io.BytesIO(response.content))
+```
+
+
+## QUESTION 1
+
+__Calculate the sample size (i.e. number of rows in the dataset) for each airport in each year__. What do you notice?
+
+The highest number in the len column is 12 for 12 months a year, but some airports have less due to having months with no delays—OR SO I THOUGHT. Turns out there are records with a year of "null" that match up with a missing month for a given year. After filling null years with the correct year there are 12 records for each airport.  
+
+_AI use reflection_
+**Link** to the original chat:
+**The Process** How exactly did you use the tool?
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+numeric_columns = [c for c in df.columns if c.startswith("num_of_delays")]
+
+
+df_atlanta = df.filter((pl.col("airport_code") == "ATL"))
+
+df_filled = df.with_columns(
+    pl.when(pl.col("month") == "January")
+    .then(pl.col("year").fill_null(strategy="backward"))
+    .otherwise(pl.col("year").fill_null(strategy="forward"))
+)
+
+df_groups = (
+    df_filled.group_by(pl.col("airport_code", "year"))
+    .agg(pl.len())
+    .sort("airport_code", "year")
+)
+
+df_groups
+```
+
+## QUESTION 2
+
+__Which airport has the worst delays?__ Describe the metric you chose, and why you chose it to determine the “worst” airport. Your answer should include a summary table that lists (for each airport) the total number of flights, total number of delayed flights, proportion of delayed flights, and average delay time in hours. 
+
+SFO has the worst delays. I corrected for human made delays by removing delays due to weather as weather is not a human controllable variable and I wanted to find the worst run airport with the most delays caused by human error. Interestingly, the average delay per flight at SFO is approximately 15 minutes and 36 seconds; I expected it to be much higher and was surprised to see this. SFO also had the second highest percentage of delayed flights at 10.98%. While ATL has the highest percentage of delayed flights at 11.26% (a 0.28% increase from SFO), they have a significantly lower delay of around 11 minutes and 24 seconds (a ~27% decrease in delay time which is almost 100x the difference of delayed flights) so I would still rank SFO as the worst run airport. 
+
+_AI use reflection_
+**Link** to the original chat: https://claude.ai/share/c3f968da-8277-41a0-8d78-a1034ab16976
+**The Process** How exactly did you use the tool? I used it to explain syntax and how methods worked. 
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+df_delayed_proportion = df.with_columns(
+    delayed_proportion=pl.col("num_of_delays_total") / pl.col("num_of_flights_total"),
+    avg_minutes_delayed_per_flight=pl.col("minutes_delayed_total")
+    / pl.col("num_of_flights_total"),
+)
+
+df_delays = df_delayed_proportion.select(
+    pl.col("airport_code", "delayed_proportion", "avg_minutes_delayed_per_flight")
+).sort("avg_minutes_delayed_per_flight", "delayed_proportion", descending=True)
+
+good_months = ["April", "May", "June", "July", "August"]
+
+weather_delays = df.with_columns(
+    pl.when(pl.col("month").is_in(good_months))
+    .then(0.40)
+    .otherwise(0.65)
+    .alias("weather_nas_rate")
+)
+total_weather_delays = weather_delays.with_columns(
+    weather_delay_k=pl.col("num_of_delays_weather")
+    + pl.col("num_of_delays_late_aircraft")
+    + pl.col("num_of_delays_nas") * pl.col("weather_nas_rate")
+)
+
+df_grouped_delays = (
+    total_weather_delays.group_by(pl.col("airport_code"))
+    .agg(
+        (
+            pl.col("minutes_delayed_total").sum()
+            - pl.col("minutes_delayed_weather").sum()
+        ).alias("total_airport_delay_minutes"),
+        (pl.col("num_of_delays_total").sum() - pl.col("weather_delay_k").sum())
+        .round(0)
+        .cast(pl.Int64)
+        .alias("total_airport_delays"),
+        pl.col("num_of_flights_total").sum().alias("total_airport_flights"),
+    )
+    .with_columns(
+        delayed_flights_percentage=(
+            pl.col("total_airport_delays") / pl.col("total_airport_flights") * 100
+        ).round(2),
+        average_delay_hours_per_flight=(
+            (pl.col("total_airport_delay_minutes") / pl.col("total_airport_delays"))
+            / 60
+        ).round(2),
+    )
+    .select(
+        "airport_code",
+        "average_delay_hours_per_flight",
+        "total_airport_delays",
+        "total_airport_flights",
+        "delayed_flights_percentage",
+    )
+    .sort("average_delay_hours_per_flight", descending=True)
+)
+
+# df_delays
+df_grouped_delays
+```
+
+## QUESTION 3
+
+__Create a barplot showing the proportion of all flights that are delayed at each airport. Describe what you learn from this graph.__  
+
+Atlanta has the most delayed flights, beating out SFO by 0.28% while Denver and SLC have the lowest percentage of delays. 
+
+_AI use reflection_
+**Link** to the original chat:
+**The Process** How exactly did you use the tool? N/A just used the lets_plot docs
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+# Include and execute your code here
+(
+    ggplot(df_grouped_delays, aes(x="airport_code", y="delayed_flights_percentage"))
+    + geom_bar(
+        aes(group="airport_code", fill="airport_code", color="airport_code"),
+        stat="identity",
+        show_legend=False,
+    )
+    + scale_fill_discrete()
+    + labs(
+        x="Airport Code",
+        y="Percentage of Flights Delayed",
+        title="Percentage of Flights Delayed per Airport Over 10 Years",
+    )
+) 
+
+```

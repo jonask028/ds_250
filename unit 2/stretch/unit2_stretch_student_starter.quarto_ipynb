@@ -1,0 +1,177 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "---\n",
+        "title: \"Unit 2 Stretch\"\n",
+        "author: \"Jonas Kennedy\"\n",
+        "format: html\n",
+        "---\n",
+        "\n",
+        "Key things I think would be helpful to show in this class:\n",
+        "\n",
+        "- pivot and unpivot\n",
+        "    - not necessary, but a good time to discuss implicit vs. explicit missing values\n",
+        "- name.map(lambda function)\n",
+        "- show facet wraps again"
+      ],
+      "id": "9303fab9"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "import polars as pl\n",
+        "import numpy as np\n",
+        "from lets_plot import *\n",
+        "\n",
+        "LetsPlot.setup_html(isolated_frame=True)\n",
+        "\n",
+        "df = pl.read_csv('https://byuistats.github.io/M335/data/rcw_reshape.csv')"
+      ],
+      "id": "3e8682d6",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "This data was collected from the first few semesters that the R&CW was run at the university level. It counts how many projects/entries were made in each semester from each department.\n",
+        "\n",
+        "Is the data in long or wide format? How can you tell? \n",
+        "\n",
+        "Convert it to wide with a `pivot()`:"
+      ],
+      "id": "83dab3a9"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "df_wide = df.pivot(on=\"Department\", values=\"Count\")\n",
+        "\n",
+        "df_wide"
+      ],
+      "id": "56a7d626",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "Convert it back to long with unpivot():"
+      ],
+      "id": "990817a8"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "df_long = df_wide.unpivot(\n",
+        "    index=[\"Year\", \"Semester\", \"Semester_Date\"],\n",
+        "    variable_name=\"Department\",\n",
+        "    value_name=\"Count\",\n",
+        ")\n",
+        "\n",
+        "df_long"
+      ],
+      "id": "03c60958",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "### Discussion/Observation:\n",
+        "\n",
+        "* *How many rows does the new long format have? *\n",
+        "\n",
+        "42\n",
+        "\n",
+        "* *How does that compare with the original data? Why?*\n",
+        "\n",
+        "there are 7 more rows because we have null values in certain columns now\n",
+        "\n",
+        "*  *Discuss: When might you want to make implicit NA's explicit? Why would you not?*\n",
+        "\n",
+        "\n",
+        "\n",
+        "# plotting\n",
+        "\n",
+        "Create a plot to look at how many projects were entered each semester by each department."
+      ],
+      "id": "d443635b"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "(ggplot(df_long, aes(x=\"Semester_Date\", y=\"Count\", color=\"Department\")) + geom_line())"
+      ],
+      "id": "9bc1444b",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "Do you see any issues with the plot? What do you think is causing the problem?\n",
+        "\n",
+        "Fix the issue and try plotting again.\n"
+      ],
+      "id": "026866f9"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "df_filled = df_long.with_columns(pl.col(\"Count\").fill_null(0))\n",
+        "(ggplot(df_filled, aes(x=\"Semester_Date\", y=\"Count\", color=\"Department\")) + geom_line())"
+      ],
+      "id": "7e957b30",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "It's a bit busy, maybe we can break it out into small multiples. In other words a different plot for each Department. \n"
+      ],
+      "id": "1e69e59c"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "departments = df_filled[\"Department\"].unique()\n",
+        "for department in departments:\n",
+        "    df_department = df_filled.filter(pl.col(\"Department\") == department)\n",
+        "    (\n",
+        "        ggplot(df_department, aes(x=\"Semester_Date\", y=\"Count\"))\n",
+        "        + geom_line()\n",
+        "        + labs(x=\"Semester Start Date\", title=department)\n",
+        "    ).show()"
+      ],
+      "id": "d633a1e9",
+      "execution_count": null,
+      "outputs": []
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "name": "python3",
+      "language": "python",
+      "display_name": "Python 3 (ipykernel)",
+      "path": "/Users/jonaskennedy/code/school/byui/ds250-projects/.venv/share/jupyter/kernels/python3"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 5
+}

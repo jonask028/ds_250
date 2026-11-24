@@ -1,0 +1,176 @@
+---
+title: "Client Report - Famous Names"
+subtitle: "Unit 1 Task 3"
+author: "Jonas Kennedy"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+    
+---
+
+```{python}
+import polars as pl
+import numpy as np
+from lets_plot import *
+
+LetsPlot.setup_html(isolated_frame=True)
+```
+
+```{python}
+# Learn morea about Code Cells: https://quarto.org/docs/reference/cells/cells-jupyter.html
+
+# Include and execute your code here
+df = pl.read_csv("../names_year.csv")
+```
+
+
+
+## QUESTION 1
+
+<!-- Make sure at least one of your charts includes reference marks!! -->
+
+__Make a new column that represents the total number of babies with your name for only those states in which you have lived. (If you have only ever lived in one state, pick at least one other state so you get practice summing across columns). Make a graph displaying that total for your name over time.__
+
+the graph shows a ping-ponging between 5-6 babies and 0 babies from 1976 until 1998, after which there is an explosion of babies named jonas up until 2008 and then it drops back down to 7-11 babies a year. 
+
+_AI use reflection_
+**Link** to the original chat:
+**The Process** How exactly did you use the tool?
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+# Q1
+jonases = df.filter(pl.col("name") == "Jonas")
+
+my_states = ["ID", "CO"]
+
+# with pl.Config(tbl_rows=-1, tbl_cols=-1, fmt_str_lengths=1000):
+#     display(
+#         jonases.with_columns((pl.col("ID") + pl.col("CO")).alias("id_co"))
+#         .select("name", "year", "id_co", "ID", "CO")
+#         .sort("id_co", descending=True)
+#         .head(150)
+#     )
+
+jonases_in_my_states = jonases.with_columns(
+    (pl.col("ID") + pl.col("CO")).alias("id_co")
+)
+
+jonas_states_chart = (
+    ggplot(jonases_in_my_states, aes(x="year", y="id_co"))
+    + geom_line(color="green")
+    + labs(
+        x="Year",
+        y="Babies Named Jonas",
+        title="Babies Named Jonas In Idaho and Colorado Over Time",
+    )
+    + scale_x_continuous(format="d")
+)
+
+jonas_states_chart
+```
+
+
+## QUESTION 2
+
+1. __Let's look at a name that is special for members of the church: Brigham. For each year, calculate what proportion of babies named Brigham were born in Idaho and Utah? Make a graph displaying the proportion over time.__  
+
+From 1975 to 1987 100% of the Brighams in the US were born in Utah and Idaho before a strange dip to 0% in 1992, then back to 100% for four years. After 1996 the proportion dips down and stays in the range of 50-80% until 2015 where it starts dropping lower meaning more Brighams are being born in other states than ever before!
+
+_AI use reflection_
+**Link** to the original chat:
+**The Process** How exactly did you use the tool?
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+# Q2
+
+brighams = df.filter(pl.col("name") == "Brigham")
+
+my_states = ["ID", "CO"]
+
+brighams_in_my_states = brighams.with_columns(
+    (pl.col("ID") + pl.col("UT")).alias("id_ut")
+)
+
+# with pl.Config(tbl_rows=-1, tbl_cols=-1, fmt_str_lengths=1000):
+#     display(
+# brighams_in_my_states = brighams.with_columns((pl.col("ID") + pl.col("UT")).alias("id_ut"))
+#     .select("name", "year", "id_ut", "ID", "UT")
+#     .sort("id_ut", descending=True)
+#     .head(150)
+# )
+brighams_proportion = brighams_in_my_states.with_columns(
+    pl.when(pl.col("Total") > 0)
+    .then((pl.col("id_ut") / pl.col("Total") * 100).alias("id_ut_proportion"))
+    .otherwise(None)
+)
+brighams_proportion.filter(pl.col("year") == 1992)
+brigham_states_chart = (
+    ggplot(brighams_proportion, aes(x="year", y="id_ut_proportion"))
+    + geom_line(color="green")
+    + labs(
+        x="Year",
+        y="National proportion of Brighams in Idaho and Utah",
+        title="Babies Named Brigham In Idaho and Utah Over Time",
+    )
+    + scale_x_continuous(format="d")
+)
+
+brigham_states_chart
+```
+
+<!-- Make sure at least one of your charts includes reference marks!! -->
+
+## QUESTION 3
+
+1. __Consider doing some data validation. For the name David, calculate a sum of all 50 states and District of Columbia for each year. Now compare that total to the value in the 'Total' column. In which years, if any, do they not agree?__
+
+There are no years where the sum of the state totals does not agree with the Total column for the name David.
+
+_AI use reflection_
+**Link** to the original chat:
+**The Process** How exactly did you use the tool?
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+# Q3
+states_cols = [
+    column for column in df.columns if column not in ("name", "year", "Total")
+]
+
+david_totals = (
+    df.filter(pl.col("name") == "David")
+    .with_columns(pl.sum_horizontal(states_cols).alias("states_sum"))
+    .with_columns((pl.col("states_sum") - pl.col("Total")).alias("difference"))
+)
+
+davids_off = david_totals.filter(pl.col("difference") != 0).select(
+    "year", "states_sum", "Total", "difference"
+)
+
+(
+    ggplot(davids_off, aes(x="year", y="difference"))
+    + labs(x="Year", y="Difference Between States Sum and Total")
+    + geom_point(color="orange")
+    + geom_hline(yintercept=0, linetype="dashed")
+    + scale_x_continuous(format="d")
+)
+```

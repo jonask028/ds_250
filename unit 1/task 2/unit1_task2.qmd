@@ -1,0 +1,336 @@
+---
+title: "Client Report - What's in a Name?"
+subtitle: "Unit 1 Task 2"
+author: "Jonas Kennedy"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+    
+---
+
+```{python}
+import polars as pl
+import numpy as np
+from lets_plot import *
+
+LetsPlot.setup_html(isolated_frame=True)
+```
+
+```{python}
+# Learn morea about Code Cells: https://quarto.org/docs/reference/cells/cells-jupyter.html
+
+# Include and execute your code here
+df = pl.read_csv("../names_year.csv")
+```
+
+## QUESTION 1
+
+<!-- Make sure at least one of your charts includes reference marks!! -->
+
+__How does your name at your birth year compare to its use historically? Your must provide a chart. The years labels on your charts should not include a comma.__ 
+
+My name during my birth year (2000) was on its uptake in popularity. Every year from 1996 to 2008 set a new record for the number of babies named jonas. After 2008 there was a sharp fall-off to 502 names in 2011 but it has stayed above the number of babies named Jonas in 2000 every year after 2000. 
+
+_AI use reflection_
+**Link** to the original chat: N/A
+**The Process** How exactly did you use the tool?
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+# Q1
+williams = df.filter(pl.col("name") == "William").select(["name", "year", "Total"])
+williams_2000 = (
+    df.filter((pl.col("name") == "William") & (pl.col("year") == 2000))
+    .select("Total")
+    .item()
+)
+# williams_2000 = williams.filter(pl.col("year") == 2000).select("Total").item()
+
+# williams_2000
+# williams
+williams_chart = (
+    ggplot(williams, aes(x="year", y="Total"))
+    + geom_line(color="#EC25A7")
+    + labs(x="Year", y="Babies Names William", title="Babies Named William Over Time")
+    + scale_x_continuous(format="d")
+    + geom_hline(
+        yintercept=williams_2000,
+        color="green",
+    )
+)
+
+williams_chart
+```
+
+
+## QUESTION 2
+
+__Think of a unique name from a famous movie. Plot the usage of that name and see how changes line up with the movie release. Does it look like the movie had an effect on usage?__  
+
+With the name Keanu we see it first start popping up in the year that Point Break released which is considered to be the start of Keanu Reeve's ascendance as a celebrity. Following Speed, The Matrix, John Wick, Cyberpunk 2077, and the John Wick 4 the name continuously jumps up, with the largest jump in the 2020s when he started going viral for how down to earth he was along with some meme templates using images of him. It begins to skyrocket with the release of the John Wick movies up until his role as Johnny Silverhand in Cyberpunk 2077 seems to have plateaued the growth with it beginning to drop in 2022 and then climbing back up in 2023 with the release of John Wick 4. 
+
+_AI use reflection_
+**Link** to the original chat: N/A
+**The Process** How exactly did you use the tool? 
+**The Impact**  
+
+```{python}
+# Q2
+keanus_data = df.filter(pl.col("name") == "Keanu")
+
+(
+    ggplot(keanus_data, aes(x="year", y="Total"))
+    + geom_line(color="blue")
+    + labs(x="Year", y="Babies Named Keanu", title="Babies Named Keanu Over Time")
+    + scale_x_continuous(format="d")
+    + geom_vline(
+        xintercept=1991,
+        color="yellow",
+        tooltips=layer_tooltips().line("Point Break Releases"),
+    )
+    + geom_vline(
+        xintercept=1994,
+        color="orange",
+        tooltips=layer_tooltips().line("Speed Releases"),
+    )
+    + geom_vline(
+        xintercept=1999,
+        color="green",
+        tooltips=layer_tooltips().line("The Matrix Releases"),
+    )
+    + geom_vline(
+        xintercept=2014,
+        color="red",
+        tooltips=layer_tooltips().line("John Wick Releases"),
+    )
+    + geom_vline(
+        xintercept=2020,
+        color="magenta",
+        tooltips=layer_tooltips().line("Cyberpunk 2077 Releases"),
+    )
+    + geom_vline(
+        xintercept=2023,
+        color="purple",
+        tooltips=layer_tooltips().line("John Wick 4 Releases"),
+    )
+)
+```
+
+## QUESTION 3
+
+__Mary, Martha, Peter, and Paul are all Christian names. From 1920 - 2000, compare the name usage of each of the four names in a single chart. What trends do you notice?__  
+
+The names reach their most popular starting in the 1940s during and after the second World War, before a decline starting in the 1960s. There is a sharper decline for Mary and Paul—the most popular of the names. A slower continuous decline through the remaining decades to the present day begins in 1972. Mary is an outlier with it's peak popularity in the early 1920s before a relatively small decline in the 1930s but follows the trend with the other names during the mid 1940s.
+
+_AI use reflection_
+**Link** to the original chat: N/A
+**The Process** How exactly did you use the tool?
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+# Q3
+bible_names = ["Mary", "Martha", "Peter", "Paul"]
+bible_names_data = df.filter(pl.col("name").is_in(bible_names))
+(
+    ggplot(bible_names_data, aes(x="year", y="Total"))
+    + geom_line(
+        data=bible_names_data.filter(pl.col("name") == "Mary"),
+        color="blue",
+        manual_key=layer_key("Mary"),
+        linetype=1,
+    )
+    + geom_line(
+        data=bible_names_data.filter(pl.col("name") == "Martha"),
+        color="magenta",
+        manual_key=layer_key("Martha"),
+        linetype=1,
+    )
+    + geom_line(
+        data=bible_names_data.filter(pl.col("name") == "Peter"),
+        color="red",
+        manual_key=layer_key("Peter"),
+        linetype=1,
+    )
+    + geom_line(
+        data=bible_names_data.filter(pl.col("name") == "Paul"),
+        color="orange",
+        manual_key=layer_key("Paul"),
+        linetype=1,
+    )
+    + labs(
+        x="Year",
+        y="Biblical Name Popularity",
+        title="Biblical Name Popularity Over Time",
+    )
+    + scale_x_continuous(format="d")
+    + scale_shape(guide=guide_legend(nrow=4))
+)
+```
+<!-- Make sure at least one of your charts includes reference marks!! -->
+
+
+```{python}
+family_names = [
+    "Evelyn",
+    "Brian",
+    "Kara",
+    "Michael",
+    "Lauren",
+    "Naomi",
+    "William",
+    "Janessa",
+]
+family_names_data = df.filter(pl.col("name").is_in(family_names))
+evelyns_1944 = (
+    df.filter((pl.col("name") == "Evelyn") & (pl.col("year") == 1944))
+    .select("Total")
+    .item()
+)
+brians_1970 = (
+    df.filter((pl.col("name") == "Brian") & (pl.col("year") == 1970))
+    .select("Total")
+    .item()
+)
+karas_1971 = (
+    df.filter((pl.col("name") == "Kara") & (pl.col("year") == 1971))
+    .select("Total")
+    .item()
+)
+michaels_1994 = (
+    df.filter((pl.col("name") == "Michael") & (pl.col("year") == 1994))
+    .select("Total")
+    .item()
+)
+laurens_1997 = (
+    df.filter((pl.col("name") == "Lauren") & (pl.col("year") == 1997))
+    .select("Total")
+    .item()
+)
+naomis_1999 = (
+    df.filter((pl.col("name") == "Naomi") & (pl.col("year") == 1999))
+    .select("Total")
+    .item()
+)
+williams_2000 = (
+    df.filter((pl.col("name") == "William") & (pl.col("year") == 2000))
+    .select("Total")
+    .item()
+)
+janessas_2000 = (
+    df.filter((pl.col("name") == "Janessa") & (pl.col("year") == 2000))
+    .select("Total")
+    .item()
+)
+family_names_chart = (
+    ggplot(family_names_data, aes(x="year", y="Total"))
+    + geom_line(
+        data=family_names_data.filter(pl.col("name") == "Evelyn"),
+        color="yellow",
+        manual_key=layer_key("Evelyn"),
+        linetype=1,
+    )
+    + geom_line(
+        data=family_names_data.filter(pl.col("name") == "Brian"),
+        color="black",
+        manual_key=layer_key("Brian"),
+        linetype=1,
+    )
+    + geom_line(
+        data=family_names_data.filter(pl.col("name") == "Kara"),
+        color="blue",
+        manual_key=layer_key("Kara"),
+        linetype=1,
+    )
+    + geom_line(
+        data=family_names_data.filter(pl.col("name") == "Michael"),
+        color="orange",
+        manual_key=layer_key("Michael"),
+        linetype=1,
+    )
+    + geom_line(
+        data=family_names_data.filter(pl.col("name") == "Lauren"),
+        color="red",
+        manual_key=layer_key("Lauren"),
+        linetype=1,
+    )
+    + geom_line(
+        data=family_names_data.filter(pl.col("name") == "Naomi"),
+        color="purple",
+        manual_key=layer_key("Naomi"),
+        linetype=1,
+    )
+    + geom_line(
+        data=family_names_data.filter(pl.col("name") == "William"),
+        color="green",
+        manual_key=layer_key("William"),
+        linetype=1,
+    )
+    + geom_line(
+        data=family_names_data.filter(pl.col("name") == "Janessa"),
+        color="magenta",
+        manual_key=layer_key("Janessa"),
+        linetype=1,
+    )
+    + labs(
+        x="Year",
+        y="Family Name Popularity",
+        title="Family Names Popularity Over Time",
+    )
+    + geom_hline(yintercept=evelyns_1944, color="yellow", linetype=2)
+    + geom_hline(yintercept=brians_1970, color="black", linetype=2)
+    + geom_hline(yintercept=karas_1971, color="blue", linetype=2)
+    + geom_hline(yintercept=michaels_1994, color="orange", linetype=2)
+    + geom_hline(yintercept=laurens_1997, color="red", linetype=2)
+    + geom_hline(yintercept=naomis_1999, color="purple", linetype=2)
+    + geom_hline(yintercept=williams_2000, color="green", linetype=2)
+    + geom_hline(yintercept=janessas_2000, color="magenta", linetype=2)
+    + scale_x_continuous(format="d")
+    + scale_shape(guide=guide_legend(nrow=8))
+)
+
+family_names_chart
+```
+
+
+```{python}
+colettes = df.filter(pl.col("name") == "Colette").select(["name", "year", "Total"])
+colettes_2024 = (
+    df.filter((pl.col("name") == "Colette") & (pl.col("year") == 2024))
+    .select("Total")
+    .item()
+)
+# colettes_2000 = colettes.filter(pl.col("year") == 2000).select("Total").item()
+
+# colettes_2000
+# colettes
+colettes_chart = (
+    ggplot(colettes, aes(x="year", y="Total"))
+    + geom_line(color="#EC25A7")
+    + labs(x="Year", y="Babies Names Colette", title="Babies Named Colette Over Time")
+    + scale_x_continuous(format="d")
+    + geom_hline(
+        yintercept=colettes_2024,
+        color="#EC25A7",
+        linetype=2
+    )
+)
+
+colettes_chart
+```

@@ -1,0 +1,136 @@
+---
+title: "Client Report - Baseball Database SQL Query"
+subtitle: "Unit 3 Task 2"
+author: "Jonas Kennedy"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+    
+---
+
+
+```{python}
+import polars as pl
+import numpy as np
+import sqlite3
+from lets_plot import *
+
+LetsPlot.setup_html(isolated_frame=True)
+```
+
+
+```{python}
+# Learn morea about Code Cells: https://quarto.org/docs/reference/cells/cells-jupyter.html
+
+# Include and execute your code here
+sqlite_file = "../lahmansbaseballdb.sqlite"
+# this file must be in the same location as your .qmd or .py file
+con = sqlite3.connect(sqlite_file)
+```
+
+## QUESTION 1
+
+__Write an SQL query that provides playerID, yearID, and batting average for players with at least 1 at bat that year. Sort the table from highest batting average to lowest, and then by playerid alphabetically. Show the top 5 results in your report.__
+
+The top 5 all have a 100% average with a grand total of 1 time at bat and 1 hit. 
+
+_AI use reflection_
+**Link** to the original chat:
+**The Process** How exactly did you use the tool?
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+# Include and execute your code here
+
+# The code below can serve as a template for all the rest of your queries. It is just missing the
+# SQL code. Put your SQL query in between the triple quotation marks to create the query. The records will be stored in 'results', which is a polars data frame
+
+q = """
+    SELECT playerID, yearID,
+    SUM(AB) AS `yearly_AB`,
+    SUM(H) AS `yearly_H`,
+    1.0 * SUM(H)/SUM(AB) AS `yearly_avg`
+    FROM batting
+    GROUP BY playerID, yearID
+    HAVING SUM(AB) > 0
+    ORDER BY yearly_avg DESC, playerID
+    LIMIT 5
+    """
+results = pl.read_database(q, con)
+results
+```
+
+
+## QUESTION 2
+
+__Use the same query as above, but only include players with at least 10 at bats that year. Print the top 5 results.__  
+
+The top result has an average of 0.642 and the rest are all at within 10 points exactly. The yearly AB is still quite low at a max of 16 and a min of 10, but it is better than 1. I would still prefer to make the min a much larger sample size. 
+
+_AI use reflection_
+**Link** to the original chat:
+**The Process** How exactly did you use the tool?
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+# Include and execute your code here
+q = """
+    SELECT playerID, yearID,
+    SUM(AB) AS `yearly_AB`,
+    SUM(H) AS `yearly_H`,
+    1.0 * SUM(H)/SUM(AB) AS `yearly_avg`
+    FROM batting
+    GROUP BY playerID, yearID
+    HAVING SUM(AB) > 9
+    ORDER BY yearly_avg DESC, playerID
+    LIMIT 5
+    """
+results = pl.read_database(q, con)
+results
+```
+
+
+## QUESTION 3
+
+__Now modify the SQL query to calculate the batting average for players over their entire careers (all years combined). Only include players with at least 100 at bats over their entire career, and print the top 5 results.__
+
+Now the results are much more meaningful with times at bat in the thousands and the data matches the output from our last assignment. 
+
+_AI use reflection_
+**Link** to the original chat:
+**The Process** How exactly did you use the tool?
+**The Impact**  How did using AI impact your learning?
+
+```{python}
+# Include and execute your code here
+q = """
+    SELECT playerID,
+    SUM(AB) AS `total_AB`,
+    SUM(H) AS `total_H`,
+    1.0 * SUM(H)/SUM(AB) AS `total_avg`
+    FROM batting
+    GROUP BY playerID
+    HAVING SUM(AB) > 99
+    ORDER BY total_avg DESC, playerID
+    LIMIT 5
+    """
+results = pl.read_database(q, con)
+results
+```

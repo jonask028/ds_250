@@ -1,0 +1,78 @@
+{
+  "spec": {
+    "name": "extra_bootstrap",
+    "family": "extra",
+    "params": {
+      "bootstrap": true
+    },
+    "features": "base",
+    "training": "corrected"
+  },
+  "aggregation": "window10",
+  "selection_priority": [
+    "percent_over_10",
+    "percent_over_5",
+    "MAE"
+  ],
+  "validation": {
+    "name": "extra_bootstrap",
+    "aggregation": "window10",
+    "MAE": 7.742731753944706,
+    "RMSE": 16.770347291492417,
+    "R_squared": 0.7880381569280757,
+    "percent_over_5": 35.63585830140831,
+    "percent_over_10": 15.43990967241452,
+    "pre1943_MAE": 14.65874406277126,
+    "pre1943_percent_over_10": 34.908311895759596
+  },
+  "alternatives": [
+    {
+      "model": "Lowest validation MAE",
+      "spec": {
+        "name": "extra_bootstrap",
+        "family": "extra",
+        "params": {
+          "bootstrap": true
+        },
+        "features": "base",
+        "training": "corrected"
+      },
+      "aggregation": "median",
+      "validation": {
+        "name": "extra_bootstrap",
+        "aggregation": "median",
+        "MAE": 7.0161581376329645,
+        "RMSE": 16.055589682695558,
+        "R_squared": 0.8057249245037843,
+        "percent_over_5": 28.4690088586671,
+        "percent_over_10": 18.162248440111068,
+        "pre1943_MAE": 13.796832501722669,
+        "pre1943_percent_over_10": 40.31276622803819
+      }
+    },
+    {
+      "model": "Fewest five-year misses",
+      "spec": {
+        "name": "extra_bootstrap",
+        "family": "extra",
+        "params": {
+          "bootstrap": true
+        },
+        "features": "base",
+        "training": "corrected"
+      },
+      "aggregation": "window5",
+      "validation": {
+        "name": "extra_bootstrap",
+        "aggregation": "window5",
+        "MAE": 7.804617508276407,
+        "RMSE": 17.37886915330843,
+        "R_squared": 0.7723646223237801,
+        "percent_over_5": 25.284695133527276,
+        "percent_over_10": 18.22588761205185,
+        "pre1943_MAE": 15.107501764274778,
+        "pre1943_percent_over_10": 42.094343166518904
+      }
+    }
+  ]
+}

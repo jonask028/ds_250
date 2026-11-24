@@ -1,0 +1,58 @@
+{
+  "training_parcels": 16372,
+  "control_parcels": 4093,
+  "control_rows": 4588,
+  "results": [
+    {
+      "model": "Default Extra Trees",
+      "MAE": 7.448586210844277,
+      "RMSE": 15.271283209965153,
+      "R_squared": 0.8342872590341773,
+      "percent_over_5": 34.45945945945946,
+      "percent_over_10": 21.36006974716652,
+      "pre1943_MAE": 13.45231043256997,
+      "pre1943_percent_over_10": 42.29007633587786
+    },
+    {
+      "model": "Default random forest",
+      "MAE": 7.8314184744359485,
+      "RMSE": 15.130347204287869,
+      "R_squared": 0.837331812968923,
+      "percent_over_5": 37.22755013077594,
+      "percent_over_10": 22.9075850043592,
+      "pre1943_MAE": 14.143404580152673,
+      "pre1943_percent_over_10": 44.58015267175573
+    },
+    {
+      "model": "Fewest ten-year misses",
+      "MAE": 7.5860012862029,
+      "RMSE": 16.74180588234714,
+      "R_squared": 0.8008366409996471,
+      "percent_over_5": 32.9337401918047,
+      "percent_over_10": 14.908456843940716,
+      "pre1943_MAE": 14.29618320610687,
+      "pre1943_percent_over_10": 31.90839694656489
+    },
+    {
+      "model": "Lowest validation MAE",
+      "MAE": 6.820589705267125,
+      "RMSE": 15.776966423501241,
+      "R_squared": 0.8231309510017651,
+      "percent_over_5": 27.85527462946818,
+      "percent_over_10": 17.807323452484745,
+      "pre1943_MAE": 13.262213740458016,
+      "pre1943_percent_over_10": 38.091603053435115
+    },
+    {
+      "model": "Fewest five-year misses",
+      "MAE": 7.583034609849127,
+      "RMSE": 17.176000741992954,
+      "R_squared": 0.7903721700769729,
+      "percent_over_5": 24.237140366172625,
+      "percent_over_10": 17.523975588491716,
+      "pre1943_MAE": 14.802290076335877,
+      "pre1943_percent_over_10": 39.9236641221374
+    }
+  ],
+  "note": "Control parcels were excluded from this sweep, but have been evaluated earlier in the project. This is not a wholly untouched external test."
+}

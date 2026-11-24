@@ -25,6 +25,8 @@ execute:
     
 ---
 
+NO AI WAS USED
+
 ```{python}
 import polars as pl
 import numpy as np
@@ -37,21 +39,15 @@ LetsPlot.setup_html(isolated_frame=True)
 # Learn morea about Code Cells: https://quarto.org/docs/reference/cells/cells-jupyter.html
 
 # Include and execute your code here
-df = pl.read_csv("names_year_csv.csv")
+df = pl.read_csv("../names_year.csv")
+df
 ```
 
-```{python}
-df.head()
-jonases_in_2000 = df.filter(pl.col("name") == "Jonas").select(["name", "year", "Total"])
-
-jonases_in_2000
-jonases_in_2000["Total"].sum()
-```
 ## QUESTION 1
 
 __What was the earliest year that the name ‘Felisha’ was used?__
 
-_type your results and analysis here_
+The earliest the name Felicia was used was in 1910. Filtering the data for all Felicias, grabbing only the name, year, and total, and sorting it in ascending order showed me the earliest one. 
 
 _AI use reflection_
 **Link** to the original chat:
@@ -60,8 +56,9 @@ _AI use reflection_
 
 ```{python}
 # Q1
-
-
+df.filter(pl.col("name") == "Felicia").select("name", "year", "Total").sort(
+    "year", descending=False
+)
 ```
 
 
@@ -69,7 +66,7 @@ _AI use reflection_
 
 __What year had the most babies named 'David'? How many babies were named 'David' that year?__
 
-_type your results and analysis here_
+1955 had the most davids. There were 86389 davids born that year. 
 
 _AI use reflection_
 **Link** to the original chat:
@@ -78,8 +75,9 @@ _AI use reflection_
 
 ```{python}
 # Q2
-
-
+df.filter(pl.col("name") == "David").select("name", "year", "Total").sort(
+    "Total", descending=True
+)
 ```
 
 
@@ -87,7 +85,7 @@ _AI use reflection_
 
 __What year did your name hit its peak? How many babies were named your name in that year?__
 
-_type your results and analysis here_
+2008 had the most Jonases with 1235 Jonases born that year. 
 
 _AI use reflection_
 **Link** to the original chat:
@@ -96,7 +94,9 @@ _AI use reflection_
 
 ```{python}
 # Q3
-
+df.filter(pl.col("name") == "Jonas").select("name", "year", "Total").sort(
+    "Total", descending=True
+)
 ```
 
 
@@ -104,7 +104,7 @@ _AI use reflection_
 
 __In the most recent year, what was the most common female name in Utah?__ 
 
-_type your results and analysis here_
+The most recent year was 2024 (I did a .max() earlier to get the year with the highest total davids before I fixed it and it showed 2024) and the most popular female name was Olivia with 215 Babies born. Charlotte is a close second at 189.
 
 _AI use reflection_
 **Link** to the original chat:
@@ -113,8 +113,17 @@ _AI use reflection_
 
 ```{python}
 # Q5
-
-
+with pl.Config(tbl_rows=-1, tbl_cols=-1, fmt_str_lengths=1000):
+    display(
+        df.filter(pl.col("year") == 2024)
+        .select(
+            "name",
+            "year",
+            "UT",
+        )
+        .sort("UT", descending=True)
+        .head(25)
+    )
 ```
 
 

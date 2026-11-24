@@ -1,0 +1,302 @@
+---
+title: "Client Report - Show me!"
+subtitle: "Unit 4 Task 3"
+author: "Jonas Kennedy"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+    
+---
+
+```{python}
+import polars as pl
+import polars.selectors as cs
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, ExtraTreesRegressor
+from sklearn import metrics
+from sklearn.metrics import mean_absolute_error, root_mean_squared_error, r2_score
+from sklearn.inspection import permutation_importance
+```
+
+```{python}
+df = pl.read_csv("../dwellings_ml.csv")
+df_neighborhoods = pl.read_csv("../dwellings_neighborhoods_ml.csv")
+df_joined = df.join(
+    df_neighborhoods,
+    on="parcel",
+    how="left"
+)
+```
+
+```{python}
+x = df_joined.select(cs.numeric().exclude(["yrbuilt", "before1980", "syear", "smonth"]))
+y1 = df_joined.select("before1980")
+y2 = df_joined.select("yrbuilt")
+
+x_train1, x_test1, y_train1, y_test1 = train_test_split(
+    x, y1, test_size=0.2, random_state=28
+)
+x_train2, x_test2, y_train2, y_test2 = train_test_split(
+    x, y2, test_size=0.10, random_state=28
+)
+```
+
+```{python}
+rf_classifier = RandomForestClassifier(random_state=28)
+rf_classifier.fit(x_train1, y_train1.to_numpy().ravel())
+rfc_pred = rf_classifier.predict(x_test1)
+
+print(metrics.classification_report(y_test1, rfc_pred))
+```
+
+```{python}
+et_regressor = ExtraTreesRegressor(random_state=28)
+et_regressor.fit(x_train2, y_train2.to_numpy().ravel())
+etr_pred = et_regressor.predict(x_test2)
+
+print("Extra Trees Regressor:")
+print(f"MAE: {mean_absolute_error(y_test2, etr_pred)}")
+print(f"RMSE: {root_mean_squared_error(y_test2, etr_pred)}")
+print(f"R^2: {r2_score(y_test2, etr_pred)}")
+etr_abs_errors = abs(etr_pred - y_test2.to_numpy().ravel())
+print(f"More than 5 years off: {(etr_abs_errors > 5).mean():.1%}")
+print(f"More than 10 years off: {(etr_abs_errors > 10).mean():.1%}")
+```
+
+<!-- ```{python}
+etr_result = permutation_importance(
+    et_regressor, x_test2, y_test2, n_repeats=4, random_state=28
+)
+etr_perms_imp = pl.DataFrame({
+    "importance": etr_result.importances_mean,
+    "vars": x_train2.columns
+})
+
+with pl.Config(tbl_rows=-1, tbl_cols=-1, fmt_str_lengths=1000):
+    display(etr_perms_imp.sort("importance", descending=True))
+``` -->
+
+Report: 
+On average the Mean average error of the model is 6.16 years with the Root mean squared error being 13 years off pointing to a model that makes some really large mistakes but gets most guesses close to the actual year they were built. The R Squared error is 0.87 meaning the model explains 87% of the outcome variation with only 13% unexplained, so I would say it's an okay model for estimating home age. It has problems and to get the RMSE down I need more dwellings or features that are better tells of home age such as if it has a brick exterior or not. Below this is what AI did when I asked it to help me find out how to make it better. Most interesting to me about the AI's work is the "fewest ten-year misses" as it keeps the larger errors to a minimum quantity wise, though not necessarily a smaller absolute error. 
+
+AI chat: https://chatgpt.com/s/cx_6b027f25a4508191b5b4692d7463d78e
+```{python}
+# Compare an alternative set of Extra Trees parameters.
+# Use the same training and test data as the original regressor.
+et_regressor2 = ExtraTreesRegressor(max_features=1.0,n_estimators=300,
+max_depth=25,random_state=28)
+et_regressor2.fit(x_train2, y_train2.to_numpy().ravel())
+etr_pred2 = et_regressor2.predict(x_test2)
+
+print("Extra Trees Regressor 2:")
+print(f"MAE: {mean_absolute_error(y_test2, etr_pred2)}")
+print(f"RMSE: {root_mean_squared_error(y_test2, etr_pred2)}")
+print(f"R^2: {r2_score(y_test2, etr_pred2)}")
+etr_abs_errors2 = abs(etr_pred2 - y_test2.to_numpy().ravel())
+print(f"More than 5 years off: {(etr_abs_errors2 > 5).mean():.1%}")
+print(f"More than 10 years off: {(etr_abs_errors2 > 10).mean():.1%}")
+```
+
+
+## Controlled comparison
+
+The control set contains 20% of the unique parcels. All records for those parcels
+are held out of training. The parcel split is saved so rerunning this comparison
+uses the same properties. Every model is evaluated on the same original dwelling
+rows, joined to one neighborhood record per parcel. Training is compared with
+and without the extra copies created by the original neighborhood join.
+
+These control scores are for comparing experiments. After choosing a model,
+final performance should be checked on another independent set of properties.
+
+```{python}
+import json
+from pathlib import Path
+from sklearn.base import clone
+
+control_dwellings = pl.read_csv("../dwellings_ml.csv")
+control_neighborhoods = pl.read_csv("../dwellings_neighborhoods_ml.csv")
+unique_neighborhoods = control_neighborhoods.unique(subset=["parcel"])
+
+# Reuse this saved split for every model and both training joins.
+split_path = Path("unit4_stretch_control_split.json")
+all_parcels = sorted(control_dwellings["parcel"].unique().to_list())
+
+if split_path.exists():
+    parcel_split = json.loads(split_path.read_text())
+else:
+    training_parcels, control_parcels = train_test_split(
+        all_parcels, test_size=0.2, random_state=28
+    )
+    parcel_split = {
+        "training_parcels": sorted(training_parcels),
+        "control_parcels": sorted(control_parcels)
+    }
+    split_path.write_text(json.dumps(parcel_split, indent=2) + "\n")
+
+training_parcels = parcel_split["training_parcels"]
+control_parcels = parcel_split["control_parcels"]
+assert not set(training_parcels) & set(control_parcels)
+assert set(training_parcels) | set(control_parcels) == set(all_parcels)
+
+training_source = control_dwellings.filter(pl.col("parcel").is_in(training_parcels))
+control_source = control_dwellings.filter(pl.col("parcel").is_in(control_parcels))
+
+# Multiple original records for a parcel stay together in the same set.
+control_set = control_source.join(
+    unique_neighborhoods, on="parcel", how="left", validate="m:1"
+)
+training_original_join = training_source.join(
+    control_neighborhoods, on="parcel", how="left"
+)
+training_corrected_join = training_source.join(
+    unique_neighborhoods, on="parcel", how="left", validate="m:1"
+)
+assert control_set.height == control_source.height
+assert training_corrected_join.height == training_source.height
+
+control_features = control_set.select(
+    cs.numeric().exclude(["yrbuilt", "before1980", "syear", "smonth"])
+).columns
+x_control = control_set.select(control_features)
+y_control = control_set["yrbuilt"].to_numpy()
+
+print(f"Training parcels: {len(training_parcels):,}")
+print(f"Control parcels: {len(control_parcels):,}")
+print(f"Control dwelling rows: {control_set.height:,}")
+print(f"Original-join training rows: {training_original_join.height:,}")
+print(f"Corrected-join training rows: {training_corrected_join.height:,}")
+```
+
+```{python}
+# Include a random forest baseline and the two Extra Trees configurations above.
+# Each configuration is kept identical between the two training joins.
+control_models = {
+    "Random forest baseline": RandomForestRegressor(random_state=28),
+    "Extra Trees baseline": clone(et_regressor),
+    "Extra Trees alternative": clone(et_regressor2)
+}
+control_results = []
+
+for join_name, training_data in [
+    ("Original join", training_original_join),
+    ("Corrected join", training_corrected_join)
+]:
+    x_training = training_data.select(control_features)
+    y_training = training_data["yrbuilt"].to_numpy()
+
+    for model_name, model_template in control_models.items():
+        control_model = clone(model_template).set_params(n_jobs=-1)
+        control_model.fit(x_training, y_training)
+        control_predictions = control_model.predict(x_control)
+        control_errors = abs(control_predictions - y_control)
+
+        control_results.append({
+            "training_join": join_name,
+            "model": model_name,
+            "MAE": mean_absolute_error(y_control, control_predictions),
+            "RMSE": root_mean_squared_error(y_control, control_predictions),
+            "R_squared": r2_score(y_control, control_predictions),
+            "percent_over_5": 100 * (control_errors > 5).mean(),
+            "percent_over_10": 100 * (control_errors > 10).mean()
+        })
+
+control_comparison = pl.DataFrame(control_results)
+with pl.Config(tbl_cols=-1, fmt_str_lengths=100, float_precision=3):
+    display(control_comparison.sort(["model", "training_join"]))
+```
+
+## Tuned regression model
+
+The tuning script compared 20 model and feature configurations, including
+random forests, Extra Trees, gradient boosting, both training joins, and derived
+features. Tree ensembles were also compared using their mean, median, and a
+prediction based on the densest interval of tree estimates. The strongest
+candidates were checked on three parcel-separated validation splits.
+
+Selection prioritized the percentage more than ten years off, followed by the
+percentage more than five years off and MAE. A lower error count can come with
+larger remaining mistakes, so RMSE is reported too. The saved control parcels
+were excluded from this tuning sweep; they have been evaluated earlier in the
+project, so they are not a wholly untouched external test.
+
+The ensemble experiments use 150 trees. The comparison includes alternatives
+selected for lowest validation MAE and fewest five-year misses, as well as the
+primary ten-year target. The interval-based rules are experimental ways to
+combine predictions; they do not guarantee an individual home's error bound.
+
+Run `../../.venv/bin/python tune_regression.py` from this directory to repeat the
+search. This section only fits the saved winner, rather than repeating the search.
+
+```{python}
+from tune_regression import (
+    load_data,
+    training_rows,
+    features as tuning_features,
+    make_model,
+    predict_selected,
+    metrics as regression_scores
+)
+
+selected_settings = json.loads(Path("unit4_stretch_best_model.json").read_text())
+tuned_data, tuned_neighborhoods = load_data()
+tuned_split = json.loads(Path("unit4_stretch_control_split.json").read_text())
+tuned_spec = selected_settings["spec"]
+# Use "median" for the lowest-MAE option, or "window5" for the five-year target.
+tuned_aggregation = selected_settings["aggregation"]
+
+tuned_training = training_rows(
+    tuned_data,
+    tuned_neighborhoods,
+    tuned_split["training_parcels"],
+    tuned_spec["training"]
+)
+tuned_control = tuned_data.filter(
+    pl.col("parcel").is_in(tuned_split["control_parcels"])
+)
+assert not set(tuned_training["parcel"]) & set(tuned_control["parcel"])
+
+tuned_regressor = make_model(tuned_spec)
+tuned_regressor.fit(
+    tuning_features(tuned_training, tuned_spec["features"]),
+    tuned_training["yrbuilt"].to_numpy()
+)
+tuned_predictions = predict_selected(
+    tuned_regressor,
+    tuning_features(tuned_control, tuned_spec["features"]),
+    tuned_aggregation
+)
+tuned_scores = regression_scores(tuned_control["yrbuilt"].to_numpy(), tuned_predictions)
+
+print(f"Selected model: {tuned_spec['name']}")
+print(tuned_regressor)
+print(f"Combining tree predictions: {tuned_aggregation}")
+print(f"MAE: {tuned_scores['MAE']:.3f}")
+print(f"RMSE: {tuned_scores['RMSE']:.3f}")
+print(f"R^2: {tuned_scores['R_squared']:.3f}")
+print(f"More than 5 years off: {tuned_scores['percent_over_5']:.1f}%")
+print(f"More than 10 years off: {tuned_scores['percent_over_10']:.1f}%")
+
+# Every row in this comparison uses the identical held-out dwelling records.
+tuning_report = json.loads(Path("unit4_stretch_tuning_control.json").read_text())
+with pl.Config(tbl_cols=-1, fmt_str_lengths=100, float_precision=3):
+    display(pl.DataFrame(tuning_report["results"]))
+```
+
